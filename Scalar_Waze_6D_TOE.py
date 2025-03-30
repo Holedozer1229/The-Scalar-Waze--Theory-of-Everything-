@@ -13,17 +13,17 @@ logging.basicConfig(filename='toe_simulation_6d.log', level=logging.INFO,
 logger = logging.getLogger("TOESimulation")
 
 # Physical Constants (SI units, adjusted for simulation stability)
-G = 6.67430e-11          # m³/kg·s²
-c = 2.99792458e8         # m/s
-hbar = 1.0545718e-10     # J·s (scaled up from 1e-34)
+G = 6.67430e-11          # m³/kg·s² (Gravitational constant)
+c = 2.99792458e8         # m/s (Speed of light)
+hbar = 1.0545718e-10     # J·s (Scaled reduced Planck constant)
 alpha = 1 / 137.0        # Fine-structure constant
-e = 1.60217662e-19       # C
-epsilon_0 = 8.854187817e-6  # F/m (scaled up from 1e-12)
-mu_0 = 4 * np.pi * 1e-7  # H/m
-m_e = 9.1093837e-31      # kg
-m_q = 2.3e-30            # kg
-m_h = 2.23e-25 * 1e-5    # kg (scaled down for dynamics)
-m_n = 1.67e-28           # kg
+e = 1.60217662e-19       # C (Electron charge)
+epsilon_0 = 8.854187817e-6  # F/m (Vacuum permittivity, scaled)
+mu_0 = 4 * np.pi * 1e-7  # H/m (Vacuum permeability)
+m_e = 9.1093837e-31      # kg (Electron mass)
+m_q = 2.3e-30            # kg (Quark mass)
+m_h = 2.23e-25 * 1e-5    # kg (Higgs mass, scaled)
+m_n = 1.67e-28           # kg (Nugget mass)
 g_w = 0.653              # Weak coupling constant
 g_s = 1.221              # Strong coupling constant
 v_higgs = 246e9 * e / c**2  # Higgs VEV (kg·m/s² equivalent)
@@ -31,21 +31,22 @@ l_p = np.sqrt(hbar * G / c**3)  # Planck length (m)
 kappa = 1e-8             # Nugget coupling
 lambda_higgs = 0.5       # Higgs self-coupling
 RS = 2.0 * G * m_e / c**2  # Schwarzschild radius for electron (m)
+observer_coupling = 1e-6  # Coupling for observer field interactions
 
-# Pauli and Gell-Mann Matrices
+# Pauli and Gell-Mann Matrices for SU(2) and SU(3) gauge fields
 sigma = [
-    np.array([[0, 1], [1, 0]]),
-    np.array([[0, -1j], [1j, 0]]),
-    np.array([[1, 0], [0, -1]])
+    np.array([[0, 1], [1, 0]], dtype=complex),           # sigma_x
+    np.array([[0, -1j], [1j, 0]], dtype=complex),        # sigma_y
+    np.array([[1, 0], [0, -1]], dtype=complex)          # sigma_z
 ]
 lambda_matrices = [
-    np.array([[0, 1, 0], [1, 0, 0], [0, 0, 0]]),
-    np.array([[0, -1j, 0], [1j, 0, 0], [0, 0, 0]]),
-    np.array([[1, 0, 0], [0, -1, 0], [0, 0, 0]]),
-    np.array([[0, 0, 1], [0, 0, 0], [1, 0, 0]]),
-    np.array([[0, 0, -1j], [0, 0, 0], [1j, 0, 0]]),
-    np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0]]),
-    np.array([[0, 0, 0], [0, 0, -1j], [0, 1j, 0]]),
+    np.array([[0, 1, 0], [1, 0, 0], [0, 0, 0]], dtype=complex),
+    np.array([[0, -1j, 0], [1j, 0, 0], [0, 0, 0]], dtype=complex),
+    np.array([[1, 0, 0], [0, -1, 0], [0, 0, 0]], dtype=complex),
+    np.array([[0, 0, 1], [0, 0, 0], [1, 0, 0]], dtype=complex),
+    np.array([[0, 0, -1j], [0, 0, 0], [1j, 0, 0]], dtype=complex),
+    np.array([[0, 0, 0], [0, 0, 1], [0, 1, 0]], dtype=complex),
+    np.array([[0, 0, 0], [0, 0, -1j], [0, 1j, 0]], dtype=complex),
     np.array([[1, 0, 0], [0, 1, 0], [0, 0, -2]]) / np.sqrt(3)
 ]
 
@@ -67,6 +68,15 @@ f_su3[2, 4, 5] = 1/2; f_su3[2, 5, 4] = -1/2
 f_su3[3, 4, 7] = np.sqrt(3)/2; f_su3[3, 7, 4] = -np.sqrt(3)/2
 f_su3[5, 6, 7] = np.sqrt(3)/2; f_su3[5, 7, 6] = -np.sqrt(3)/2
 
+# SO(6) Generators for 6D Holonomies
+so6_generators = [np.zeros((6, 6), dtype=complex) for _ in range(15)]
+idx = 0
+for i in range(6):
+    for j in range(i + 1, 6):
+        so6_generators[idx][i, j] = 1
+        so6_generators[idx][j, i] = -1
+        idx += 1
+
 # Simulation Configuration
 CONFIG = {
     "grid_size": (5, 5, 5, 5, 5, 5),  # (Nt, Nx, Ny, Nz, Nv, Nu)
@@ -76,6 +86,7 @@ CONFIG = {
     "entanglement_factor": 0.2,
     "charge": e,
     "em_strength": 3.0,
+    "nodes": 16,  # For secondary spin network (optional)
     "dt": 1e-12,
     "dx": l_p * 1e5,
     "dv": 1e-10,
@@ -100,9 +111,7 @@ CONFIG = {
     "entanglement_coupling": 1e-6,
     "swarm_size": 5,
     "sample_rate": 22050,
-    "steps": 100,
-    "J_wormhole": 0.5,  # Wormhole coupling
-    "K_ctc": 0.5        # CTC coupling
+    "steps": 100
 }
 
 START_TIME = time.perf_counter_ns() / 1e9
@@ -136,28 +145,26 @@ def simulate_hall_sensor(iteration):
 def repeating_curve(index):
     return 1 if index % 2 == 0 else 0
 
-# Spin Network Class (Extended to 6D with Wormhole and CTC)
+# Spin Network Class
 class SpinNetwork:
     def __init__(self, grid_size=CONFIG["grid_size"]):
         self.grid_size = grid_size
         self.Nt, self.Nx, self.Ny, self.Nz, self.Nv, self.Nu = grid_size
         self.total_points = self.Nt * self.Nx * self.Ny * self.Nz * self.Nv * self.Nu
         self.state = np.ones(self.total_points, dtype=complex) / np.sqrt(self.total_points)
-        self.coordinates = None  # Will be set by the simulation
+        self.coordinates = None  # To be set by the simulation
         self.lambda_ = None
 
-    def build_wormhole_ctc_hamiltonian(self, J=1.0):
+    def build_hamiltonian(self, J=1.0, J_wormhole=0.5, K_ctc=0.5):
         H = np.zeros((self.total_points, self.total_points), dtype=complex)
         coords_flat = self.coordinates.reshape(-1, 6)
-        
-        # Standard interactions (H_spin_network)
         distances = np.linalg.norm(coords_flat[:, np.newaxis, :] - coords_flat[np.newaxis, :, :], axis=2)
-        H_base = np.where(distances > 0, J / np.sqrt(distances**10 + 10), 0)  # From 4D CTC model
+        H_base = np.where(distances > 0, J / (distances + 1e-15), 0)
         norms = np.linalg.norm(coords_flat[:, :3], axis=1)
         np.fill_diagonal(H_base, norms)
         H += H_base
 
-        # Wormhole connections (H_wormhole)
+        # Wormhole connections: Connect opposite spatial corners
         wormhole_pairs = []
         for t in range(self.Nt):
             for v in range(self.Nv):
@@ -166,10 +173,10 @@ class SpinNetwork:
                     idx2 = np.ravel_multi_index((t, self.Nx-1, self.Ny-1, self.Nz-1, v, u), self.grid_size)
                     wormhole_pairs.append((idx1, idx2))
         for i, j in wormhole_pairs:
-            H[i, j] += CONFIG["J_wormhole"]
-            H[j, i] += CONFIG["J_wormhole"]
+            H[i, j] += J_wormhole
+            H[j, i] += J_wormhole
 
-        # CTC connections (H_ctc)
+        # CTC connections: Connect t=0 to t=Nt-1
         ctc_pairs = []
         for x in range(self.Nx):
             for y in range(self.Ny):
@@ -180,36 +187,30 @@ class SpinNetwork:
                             idx2 = np.ravel_multi_index((self.Nt-1, x, y, z, v, u), self.grid_size)
                             ctc_pairs.append((idx1, idx2))
         for i, j in ctc_pairs:
-            H[i, j] += CONFIG["K_ctc"]
-            H[j, i] += CONFIG["K_ctc"]
+            H[i, j] += K_ctc
+            H[j, i] += K_ctc
 
-        # Ensure Hermiticity
-        H = (H + H.conj().T) / 2
+        H = (H + H.conj().T) / 2  # Ensure Hermiticity
         return H
 
     def evolve(self, H, dt):
         self.state = expm(-1j * H * dt / hbar) @ self.state
 
     def compute_holonomies(self, spacetime_grid):
-        Nt, Nx, Ny, Nz, Nv, Nu = spacetime_grid.shape[:6]
+        Nt, Nx, Ny, Nz, Nv, Nu = self.grid_size
         holonomies = np.zeros((Nt, Nx, Ny, Nz, Nv, Nu, 6, 6), dtype=complex)
         dx = np.gradient(spacetime_grid[..., 0], CONFIG["dx"], axis=1)
         dy = np.gradient(spacetime_grid[..., 1], CONFIG["dx"], axis=2)
         dz = np.gradient(spacetime_grid[..., 2], CONFIG["dx"], axis=3)
         dv = np.gradient(spacetime_grid[..., 3], CONFIG["dv"], axis=4)
         du = np.gradient(spacetime_grid[..., 4], CONFIG["du"], axis=5)
-        so6_generators = [np.zeros((6, 6), dtype=complex) for _ in range(15)]
-        idx = 0
-        for i in range(6):
-            for j in range(i + 1, 6):
-                so6_generators[idx][i, j] = 1
-                so6_generators[idx][j, i] = -1
-                idx += 1
-        A = sum([dx[..., np.newaxis, np.newaxis] * so6_generators[i] for i in range(5)] +
-                [dy[..., np.newaxis, np.newaxis] * so6_generators[i] for i in range(5, 9)] +
-                [dz[..., np.newaxis, np.newaxis] * so6_generators[i] for i in range(9, 12)] +
-                [dv[..., np.newaxis, np.newaxis] * so6_generators[i] for i in range(12, 14)] +
-                [du[..., np.newaxis, np.newaxis] * so6_generators[14]])
+        dt = np.gradient(spacetime_grid[..., 5], CONFIG["dt"], axis=0)
+        A = (dx[..., np.newaxis, np.newaxis] * so6_generators[0] +
+             dy[..., np.newaxis, np.newaxis] * so6_generators[1] +
+             dz[..., np.newaxis, np.newaxis] * so6_generators[2] +
+             dv[..., np.newaxis, np.newaxis] * so6_generators[3] +
+             du[..., np.newaxis, np.newaxis] * so6_generators[4] +
+             dt[..., np.newaxis, np.newaxis] * so6_generators[5])
         holonomies = np.array([expm(1j * A[t, x, y, z, v, u]) for t in range(Nt) for x in range(Nx) 
                                for y in range(Ny) for z in range(Nz) for v in range(Nv) for u in range(Nu)]).reshape(Nt, Nx, Ny, Nz, Nv, Nu, 6, 6)
         return holonomies
@@ -234,7 +235,7 @@ class CTCTetrahedralField:
         v = np.linspace(0, self.dv * Nv, Nv)
         u = np.linspace(0, self.du * Nu, Nu)
         T, X, Y, Z, V, U = np.meshgrid(t, x, y, z, v, u, indexing='ij')
-        coords[..., 0] = self.dx * np.cos(T / CONFIG["dt"]) * np.sin(X / self.dx)
+        coords[..., 0] = self_px * np.cos(T / CONFIG["dt"]) * np.sin(X / self.dx)
         coords[..., 1] = self.dx * np.sin(T / CONFIG["dt"]) * np.sin(Y / self.dx)
         coords[..., 2] = self.dx * np.cos(Z / self.dx)
         coords[..., 3] = self.dv * np.sin(V / self.dv)
@@ -248,7 +249,8 @@ class CTCTetrahedralField:
         coords_flat = self.coordinates.reshape(-1, 6)
         distances = np.linalg.norm(coords_flat[:, np.newaxis, :] - coords_flat[np.newaxis, :, :], axis=2)
         H = np.where(distances > 0, hbar * c / (distances + 1e-15), 0)
-        np.fill_diagonal(H, np.linalg.norm(coords_flat, axis=1))
+        norms = np.linalg.norm(coords_flat, axis=1)
+        np.fill_diagonal(H, norms)
         H = (H + H.conj().T) / 2  # Ensure Hermiticity
         return H
 
@@ -297,7 +299,7 @@ def generate_ctc_geometry(grid_size=CONFIG["grid_size"], dx=CONFIG["dx"], dv=CON
     diffs = [np.gradient(grid[..., i], dx_array[i], axis=i) for i in range(6)]
     return grid, dx_array, diffs
 
-# Comprehensive TOE Simulation Class
+# Comprehensive 6D TOE Simulation Class
 class ComprehensiveTOESimulation:
     def __init__(self, grid_size=CONFIG["grid_size"], spins=2):
         self.grid_size = grid_size
@@ -337,13 +339,17 @@ class ComprehensiveTOESimulation:
         self.dv = CONFIG["dv"]
         self.du = CONFIG["du"]
 
+        # Initialize spacetime and geometry
         self.ctc_grid, self.deltas, self.dx_diffs = generate_ctc_geometry()
         self.wormhole_nodes = generate_wormhole_nodes()
         self.spacetime_grid = self.ctc_grid.copy()
         self.setup_symbolic_calculations()
+
+        # Spin network and fields
         self.spin_network = SpinNetwork(grid_size=grid_size)
         self.spin_network.coordinates = self.spacetime_grid
         self.spin_network.lambda_ = self.lambda_
+        self.H_spin = self.spin_network.build_hamiltonian(J=1.0, J_wormhole=0.5, K_ctc=0.5)
         self.tetrahedral_field = CTCTetrahedralField()
         self.bit_states = np.array([[repeating_curve(t + x + y + z + v + u) 
                                    for u in range(self.Nu) for v in range(self.Nv) for z in range(self.Nz) 
@@ -352,7 +358,7 @@ class ComprehensiveTOESimulation:
         self.temporal_entanglement = np.zeros(self.grid_size, dtype=complex)
         self.quantum_state = np.ones(self.grid_size, dtype=complex) / np.sqrt(self.total_points)
         self.history = []
-        self.fermion_field = np.zeros((*self.grid_size, 64), dtype=complex)  # 2^6 components
+        self.fermion_field = np.zeros((*self.grid_size, 64), dtype=complex)  # 6D Dirac spinor (2^6 components)
         self.fermion_history = []
         self.harmonic_amplitudes = np.zeros((*self.grid_size, 6), dtype=complex)
         self.entanglement_history = []
@@ -363,7 +369,7 @@ class ComprehensiveTOESimulation:
         self.electron_field = np.zeros((*self.grid_size, 64), dtype=complex)
         self.quark_field = np.zeros((*self.grid_size, 2, 3, 64), dtype=complex)
         self.em_potential = self.compute_vector_potential(0)
-        self.observer_field = np.zeros(self.grid_size, dtype=complex)  # Quantum field for entanglement
+        self.observer_field = np.random.normal(0, 1e-3, self.grid_size, dtype=complex)
         
         self.phi_range = np.linspace(-10.0, 10.0, 201)
         self.d_phi = self.phi_range[1] - self.phi_range[0]
@@ -380,7 +386,6 @@ class ComprehensiveTOESimulation:
                                 psi /= np.sqrt(np.sum(psi**2 * self.d_phi))
                                 self.phi_wave_functions[t, x, y, z, v, u] = psi
         
-        self.H_spin = self.spin_network.build_wormhole_ctc_hamiltonian(J=1.0)
         self.metric, self.inverse_metric = self.compute_quantum_metric()
         self.connection = self.compute_affine_connection()
         self.em_tensor = self.compute_em_tensor()
@@ -388,7 +393,7 @@ class ComprehensiveTOESimulation:
         self.strong_fields = self.initialize_strong_fields()
         self.weak_fields = self.initialize_weak_fields()
         self.gw = self.init_gravitational_waves()
-        self.H = self.build_unified_hamiltonian()
+        self.H_field = self.build_field_hamiltonian()
         self.particles = []
         self.phi_N_history = []
         self.higgs_norm_history = []
@@ -416,7 +421,7 @@ class ComprehensiveTOESimulation:
             [0, 0, 0, 1e-6, 1 + u**2, 1e-6],
             [0, 0, 0, 0, 1e-6, -schwarzschild_factor]
         ], dtype=float)
-        self.unitary_matrix = np.linalg.qr(metric_sample)[0]  # Orthogonal matrix
+        self.unitary_matrix = orth(metric_sample)
 
         if CONFIG["log_tensors"]:
             for t in range(min(2, self.Nt)):
@@ -444,7 +449,7 @@ class ComprehensiveTOESimulation:
     def compute_quantum_metric(self):
         metric = np.zeros((*self.grid_size, 6, 6), dtype=float)
         r = np.linalg.norm(self.spacetime_grid[..., :5], axis=-1) + 1e-6
-        area_factor = np.sqrt(6 / (8 * np.pi * self.lambda_**2))  # Adjusted for 6D
+        area_factor = np.sqrt(self.total_points / (8 * np.pi * self.lambda_**2))
         for t in range(self.Nt):
             for x in range(self.Nx):
                 for y in range(self.Ny):
@@ -570,17 +575,17 @@ class ComprehensiveTOESimulation:
             'cross': 1e-6 * np.cos(2 * np.pi * f_schumann * t)
         }
 
-    def build_unified_hamiltonian(self):
+    def build_field_hamiltonian(self):
         total_points = self.total_points
         H = np.zeros((total_points, total_points), dtype=complex)
         grid_flat = self.spacetime_grid.reshape(-1, 6)
         em_flat = self.em_tensor.reshape(-1, 6, 6)
         distances = np.linalg.norm(grid_flat[:, np.newaxis, :] - grid_flat[np.newaxis, :, :], axis=2)
-        H_base = np.sqrt(6) * np.exp(-distances / self.lambda_)
+        H_base = np.sqrt(self.total_points) * np.exp(-distances / self.lambda_)
         H_em = self.charge * np.einsum('ijk,ik,jk->ij', grid_flat[:, np.newaxis, :] - grid_flat[np.newaxis, :, :], 
                                        em_flat, grid_flat[:, np.newaxis, :] - grid_flat[np.newaxis, :, :]) / self.lambda_
         H = H_base + H_em
-        H = (H + H.conj().T) / 2
+        H = (H + H.conj().T) / 2  # Ensure Hermiticity
         return np.nan_to_num(H, nan=0.0)
 
     def compute_stress_energy(self):
@@ -632,7 +637,7 @@ class ComprehensiveTOESimulation:
                             for u in range(self.Nu):
                                 psi_e = self.electron_field[t, x, y, z, v, u]
                                 H_e = self.dirac_hamiltonian(psi_e, (t, x, y, z, v, u), quark=False)
-                                observer_term = self.observer_field[t, x, y, z, v, u] * psi_e
+                                observer_term = observer_coupling * self.observer_field[t, x, y, z, v, u] * psi_e
                                 self.electron_field[t, x, y, z, v, u] += -1j * self.dt * (H_e + observer_term) / self.hbar
                                 for flavor in range(2):
                                     for color in range(3):
@@ -644,29 +649,29 @@ class ComprehensiveTOESimulation:
         t, x, y, z, v, u = idx
         gamma_mu = self.dirac_gamma_matrices(self.metric[t, x, y, z, v, u])
         mass = self.m_quark if quark else self.m_electron
-        D_mu_psi = [np.gradient(psi, self.deltas[i], axis=i) for i in range(1, 6)]
-        H_psi = -1j * self.c * sum(gamma_mu[0] @ gamma_mu[i] @ D_mu_psi[i-1] for i in range(1, 6))
+        D_mu_psi = [np.gradient(psi, self.deltas[i], axis=i) for i in range(6)]
+        H_psi = -1j * self.c * sum(gamma_mu[i] @ D_mu_psi[i] for i in range(6))
         H_psi += (mass * self.c**2 / self.hbar) * gamma_mu[0] @ psi
         H_psi -= 1j * self.charge * sum(self.em_potential[t, x, y, z, v, u, mu] * gamma_mu[mu] @ psi for mu in range(6))
         if quark and flavor is not None and color is not None:
             T_a = lambda_matrices
             strong_term = sum(self.g_strong * self.strong_fields['A_mu'][t, x, y, z, v, u, a, mu] * T_a[a][color, color] * psi 
                               for a in range(8) for mu in range(6))
-            H_psi += -1j * strong_term
+            H_psi += strong_term
         return np.nan_to_num(H_psi, nan=0.0)
 
     def dirac_gamma_matrices(self, g_mu_nu):
         gamma_flat = []
-        I = np.eye(8, dtype=complex)
+        I = np.eye(32, dtype=complex)
         sigma_x = np.array([[0, 1], [1, 0]], dtype=complex)
         sigma_y = np.array([[0, -1j], [1j, 0]], dtype=complex)
         sigma_z = np.array([[1, 0], [0, -1]], dtype=complex)
-        gamma_flat.append(np.kron(np.kron(np.kron(I, sigma_z), I), I))  # gamma^0
-        gamma_flat.append(np.kron(np.kron(np.kron(I, sigma_x), I), I))  # gamma^1
-        gamma_flat.append(np.kron(np.kron(np.kron(I, sigma_y), I), I))  # gamma^2
-        gamma_flat.append(np.kron(np.kron(np.kron(I, I), sigma_x), I))  # gamma^3
-        gamma_flat.append(np.kron(np.kron(np.kron(I, I), sigma_y), I))  # gamma^4
-        gamma_flat.append(np.kron(np.kron(np.kron(I, I), I), sigma_z))  # gamma^5
+        gamma_flat.append(np.kron(np.kron(np.kron(np.kron(np.kron(I, sigma_z), I), I), I), I))
+        gamma_flat.append(np.kron(np.kron(np.kron(np.kron(np.kron(I, sigma_x), I), I), I), I))
+        gamma_flat.append(np.kron(np.kron(np.kron(np.kron(np.kron(I, sigma_y), I), I), I), I))
+        gamma_flat.append(np.kron(np.kron(np.kron(np.kron(np.kron(I, I), sigma_x), I), I), I))
+        gamma_flat.append(np.kron(np.kron(np.kron(np.kron(np.kron(I, I), I), sigma_y), I), I))
+        gamma_flat.append(np.kron(np.kron(np.kron(np.kron(np.kron(I, I), I), I), sigma_z), I))
         e_a_mu = np.diag([np.sqrt(abs(g_mu_nu[i, i])) for i in range(6)])
         e_mu_a = np.linalg.inv(e_a_mu)
         gamma = [sum(e_mu_a[mu, a] * gamma_flat[a] for a in range(6)) for mu in range(6)]
@@ -676,12 +681,10 @@ class ComprehensiveTOESimulation:
         A_mu = self.compute_vector_potential(iteration)
         prob = np.abs(self.quantum_state)**2
         self.spin_network.evolve(self.H_spin, self.dt)
-
         temporal_feedback = np.zeros_like(self.electron_field)
         if len(self.fermion_history) >= CONFIG["time_delay_steps"]:
             past_field = self.fermion_history[-CONFIG["time_delay_steps"]][1]
             temporal_feedback = self.ctc_feedback * (past_field - self.electron_field) * self.dt
-
         J4_effects = self.em_fields["J4"]
         self.temporal_entanglement = self.entanglement_factor * (1 + self.kappa * J4_effects) * prob
         hall_value = simulate_hall_sensor(iteration) if electromagnet_on else 512
@@ -690,7 +693,6 @@ class ComprehensiveTOESimulation:
         flip_mask = np.random.random(self.grid_size) < np.abs(em_perturbation * self.temporal_entanglement)
         self.bit_states[flip_mask] = 1 - self.bit_states[flip_mask]
         self.harmonic_amplitudes += self.kappa * J4_effects[..., np.newaxis] * A_mu
-
         self.quantum_state = self.tetrahedral_field.propagate(self.quantum_state.flatten(), self.dt).reshape(self.grid_size)
         self.em_potential = self.compute_vector_potential(iteration)
         self.em_tensor = self.compute_em_tensor()
@@ -700,7 +702,6 @@ class ComprehensiveTOESimulation:
         self.update_phi_N_from_wave_functions()
         self.evolve_higgs_field()
         self.evolve_fermion_fields()
-
         self.metric *= (1 + CONFIG["entanglement_coupling"] * self.temporal_entanglement.real[..., np.newaxis, np.newaxis])
         self.inverse_metric = np.linalg.inv(self.metric.reshape(-1, 6, 6)).reshape(*self.grid_size, 6, 6)
         self.connection = self.compute_affine_connection()
@@ -708,7 +709,6 @@ class ComprehensiveTOESimulation:
         self.ricci_tensor, self.ricci_scalar = self.compute_curvature()
         self.stress_energy = self.compute_stress_energy()
         self.einstein_tensor = self.compute_einstein_tensor()
-
         fermion_entanglement = compute_entanglement_entropy(self.electron_field, self.grid_size)
         self.entanglement_history.append(fermion_entanglement)
         timestamp = time.perf_counter_ns()
@@ -722,7 +722,6 @@ class ComprehensiveTOESimulation:
         flux_signal = self.generate_flux_signal()
         self.activate_flux_capacitor(flux_signal)
         self.ricci_scalar_history.append(self.ricci_scalar[0, 0, 0, 0, 0, 0].real)
-
         logger.info(f"Iteration {iteration}, Time {timestamp}: Bit States[0,0,0,0,0,0] = {self.bit_states[0, 0, 0, 0, 0, 0]}, "
                     f"Temporal Entanglement = {self.temporal_entanglement[0, 0, 0, 0, 0, 0]:.4f}")
 
@@ -831,12 +830,13 @@ class ComprehensiveTOESimulation:
             if i % 10 == 0:
                 print(f"Iteration {i}: Entropy = {self.entanglement_history[-1]:.4f}, Bit Flip Rate = {bit_flips:.4f}")
         self.save_combined_wav()
+        self.visualize()
         return bit_flip_rates, self.entanglement_history
 
     def visualize(self):
         fig = plt.figure(figsize=(15, 10))
         ax1 = fig.add_subplot(231, projection='3d')
-        x, y, z = self.spacetime_grid[0, :, :, :, 0, 0, :3].reshape(-1, 3).T
+        x, y, z = self.spacetime_grid[ que, :, :, :, 0, 0, :3].reshape(-1, 3).T
         sc = ax1.scatter(x, y, z, c=self.bit_states[0, :, :, :, 0, 0].flatten(), cmap='viridis')
         plt.colorbar(sc, label='Bit State')
         ax1.set_title('Spacetime Grid (t=0, v=0, u=0)')
