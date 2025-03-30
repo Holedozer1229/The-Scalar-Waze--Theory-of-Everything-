@@ -1,24 +1,19 @@
-# The Scalar Waze - 4D Theory of Everything
+# The Scalar Waze - Theory of Everything
 
-## What’s This All About?
+This repository hosts *The Scalar Waze Theory of Everything* (SW-TOE), a unified framework for fundamental physics in a six-dimensional (6D) spacetime \( (t, x, y, z, v, u) \), developed by Travis Jones. The theory introduces the scalar field \( \phi_N \) as the Unified Variant, coupling quantum dynamics to gravity, with negative energy manifesting as a spin-1/2, massless Weyl-like field at singularities.
 
-Imagine a universe where quantum fields dance with gravity, time loops twist reality, and a mysterious "nugget" field holds it all together. Welcome to **The Scalar Waze**—a daring 4D simulation that dares to unify everything: quantum mechanics, general relativity, and beyond. Built from scratch in Python, this project weaves together a tetrahedral spin network, closed timelike curves (CTCs), and a wild mix of particles and forces. It’s not just code—it’s a cosmic playground.
+## Overview
+The SW-TOE extends spacetime with \( v \) (quantum superposition) and \( u \) (entanglement) dimensions. Inspired by the integral \( \int \phi_N^2 \sin \phi_N \, d\phi_N \), it integrates Schumann frequencies and Pythagorean harmonic ratios to align gravity with quantum geometry, enabling exotic phenomena like wormholes and closed timelike curves (CTCs).
 
-- **Why It’s Cool**: Simulates a Theory of Everything (TOE) with a $5^4$ spacetime grid, spitting out entanglement, curvature, and even audio signals from a "flux capacitor."
-- **Who’s Behind It**: Travis Jones, with a little help from xAI’s Grok 3.
-- **Where It Lives**: Right here, ready for you to explore.
+## Repository Contents
+- **README.md**: Project overview and instructions.
+- **manuscript.md**: Full scientific manuscript.
+- **Scalar_Waze_6D_TOE.py**: Python simulation of the 6D TOE.
+- **requirements.txt**: Dependencies for running the simulation.
+- **LICENSE**: MIT License.
 
-Dive into the code, read the paper, and twist the fabric of reality yourself!
-
-## Get Started
-
-### Prerequisites
-- **Python 3.8+**: For the sim.
-- **LaTeX**: (e.g., TeX Live) to compile the paper.
-- **Git**: To grab this repo.
-
-### Install
-1. Clone it:
+## Installation
+1. Clone the repository:
    ```bash
    git clone https://github.com/Holedozer1229/The-Scalar-Waze---Theory-of-Everything-.git
    cd The-Scalar-Waze---Theory-of-Everything-
